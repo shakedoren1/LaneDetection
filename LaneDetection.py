@@ -3,152 +3,210 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+rightLaneGlobal = [0, 0, 0, 0, 0]
+leftLaneGlobal = [0, 0, 0, 0, 0]
+
 # %%
 # Define a region of interest
-def region_of_interest(edges_img):
-    frame_height, frame_width = edges_img.shape
-    mask = np.zeros_like(edges_img)
+def RegionOfInterest(edgesImages):
+    frameHeight, frameWidth = edgesImages.shape
+    mask = np.zeros_like(edgesImages)
 
     # Only focus on the bottom half of the screen
     polygon = np.array([[
-        (frame_width * 0.4, frame_height * 0.63),
-        (frame_width * 0.55, frame_height * 0.63),
-        (frame_width * 0.8, frame_height),
-        (frame_width * 0.1, frame_height),
+        (frameWidth * 0.4, frameHeight * 0.63),
+        (frameWidth * 0.55, frameHeight * 0.63),
+        (frameWidth * 0.8, frameHeight),
+        (frameWidth * 0.1, frameHeight),
     ]], np.int32)
     
     cv2.fillPoly(mask, polygon, 255)
-    masked_image = cv2.bitwise_and(edges_img, mask)
-    return masked_image
+    maskedImage = cv2.bitwise_and(edgesImages, mask)
+    return maskedImage
 
 # %%
-def calculateLaneBoundaries(x1, y1, x2, y2, frame_height):
+def CalculateLaneBoundaries(x1, y1, x2, y2, frameHeight):
     m = (x2-x1)/(y2-y1)
     n = x1 - m*y1
 
-    return(int(frame_height*m + n), int(frame_height), int(frame_height*0.65*m + n), int(frame_height*0.65))
+    return(int(frameHeight*m + n), int(frameHeight), int(frameHeight*0.66*m + n), int(frameHeight*0.66))
 
-def distance(x1, y1, x2, y2):
+def Distance(coordinates):
+    x1, y1, x2, y2 = coordinates
     return np.sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2))
 
-def FilterLines(lines):
-    linesAfterFilter = []
-    lines = sorted(lines, key=lambda x:x[0][0])
+def BestLeftLine(linesAfterFilter, frameWidth):
+    bestLeftLine = [0, 0, 0, 0]
+    """
+    for line in linesAfterFilter:
+        x1, y1, x2, y2 = line[0]
+        if(x1 < frameWidth // 2 or x2 < frameWidth // 2) and (x2-x1)/(y2-y1) < 0:
+            if Distance(line[0]) > Distance(bestLeftLine):
+                bestLeftLine = line[0]"""
+    
+    linesAfterFilter = sorted(linesAfterFilter, key=lambda x:x[0][0])
+    for line in linesAfterFilter:
+        x1, y1, x2, y2 = line[0]
+        if (x1 < frameWidth // 2 or x2 < frameWidth // 2) and (x2-x1)/(y2-y1) < 0:
+            if Distance(line[0]) > 85:
+                return line[0]
+            
+    return bestLeftLine
+
+def BestRightLine(linesAfterFilter, frameWidth):
+    bestRightLine = [0, 0, 0, 0]
+
+    for line in linesAfterFilter:
+        x1, y1, x2, y2 = line[0]
+        if(x1 > frameWidth // 2 or x2 > frameWidth // 2):
+            if Distance(line[0]) > Distance(bestRightLine):
+                bestRightLine = line[0]
+    """
+    linesAfterFilter = sorted(linesAfterFilter, key=lambda x:x[0][0])
+    for line in linesAfterFilter:
+        x1, y1, x2, y2 = line[0]
+        if x1 > frameWidth // 2 or x2 > frameWidth // 2:
+            if Distance(line[0]) > 70:
+                return line[0]"""
+
+    return bestRightLine
+
+def FilterLines(lines, frameWidth):
+    linesAfterInitialFilter = []
     for line in lines:
         x1, y1, x2, y2 = line[0]
         if(y1 == y2):
             continue
-        elif(np.abs((x2-x1)/(y2-y1)) > 5):
+        elif(np.abs((x2-x1)/(y2-y1)) > 2):
             continue
 
-        SimilarLineInlinesAfterFilter = False
-        for lineAfterFilter in linesAfterFilter:
-            X1, Y1, X2, Y2 = lineAfterFilter[0]
-            if(distance((X1-X2)/2, (Y1-Y2)/2, (x1-x2)/2, (y1-y2)/2) <= 40):
-                SimilarLineInlinesAfterFilter = True
-        if(not SimilarLineInlinesAfterFilter):
-            linesAfterFilter.append(line)
-    print("linesAfterFilter:", linesAfterFilter)
-    return linesAfterFilter          
-                    
+        linesAfterInitialFilter.append(line)
+
+    print("linesAfterInitialFilter:", linesAfterInitialFilter)
+
+    global leftLaneGlobal
+    global rightLaneGlobal
+
+    LeftLane = BestLeftLine(linesAfterInitialFilter, frameWidth)
+    RightLane = BestRightLine(linesAfterInitialFilter, frameWidth)       
+
+    if(LeftLane[0] == 0):
+        if(leftLaneGlobal[4] > 0):
+            leftLaneGlobal[4] = leftLaneGlobal[4] - 1
+            LeftLane = leftLaneGlobal[0:4]
+    else:
+        leftLaneGlobal = np.append(LeftLane, 11)
+      
+    if(RightLane[0] == 0):
+        if(rightLaneGlobal[4] > 0):
+            rightLaneGlobal[4] = rightLaneGlobal[4] - 1
+            RightLane = rightLaneGlobal[0:4]
+    else:
+        rightLaneGlobal = np.append(RightLane, 11)
+    
+    if(LeftLane[0] != 0 and RightLane[0] != 0):
+        return [[LeftLane], [RightLane]]
+    elif(LeftLane[0] == 0 and RightLane[0] != 0):
+        return [[RightLane]]
+    elif(LeftLane[0] != 0 and RightLane[0] == 0):
+        return [[LeftLane]]
+    else:
+        return []                   
 
 # Function to draw selected lines on the image
-def display_lines(image, lines):
-    line_image = np.zeros_like(image)
+def DisplayLines(image, lines):
+    lineImage = np.zeros_like(image)
     if lines is None:
-        return line_image
+        return lineImage
 
-    linesAfterFilter = FilterLines(lines)
-    #for line in lines:
+    linesAfterFilter = FilterLines(lines, image.shape[1])
     for line in linesAfterFilter:
-        x1, y1, x2, y2 = line[0]
-        # cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 10)
-        # if(y1 == y2):
-        #     continue
-        # elif(np.abs((x2-x1)/(y2-y1)) > 5):
-        #     continue
-        
-        x1, y1, x2, y2 = calculateLaneBoundaries(x1, y1, x2, y2, image.shape[0])
-        cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 255), 10)
-    return line_image
+        x1, y1, x2, y2 = line[0]        
+        x1, y1, x2, y2 = CalculateLaneBoundaries(x1, y1, x2, y2, image.shape[0])
+        if(rightLaneGlobal[4] <= 1 or leftLaneGlobal[0] <= 1):
+            cv2.line(lineImage, (x1, y1), (x2, y2), (0, 255, 0), 12)
+        else:
+            cv2.line(lineImage, (x1, y1), (x2, y2), (255, 0, 255), 12)
+    
+    return lineImage
 
 # %%
 def processFrame(frame):
     # Convert to grayscale
-    gray_img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    grayImage = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     # Apply Gaussian blur
-    blur_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
+    blurImage = cv2.GaussianBlur(grayImage, (5, 5), 0)
     # Use Canny edge detection
-    edges_img = cv2.Canny(blur_img, 50, 150)
+    edgesImages = cv2.Canny(blurImage, 50, 150)
 
-    masked_edges = region_of_interest(edges_img)
+    maskedEdges = RegionOfInterest(edgesImages)
 
     # Use Hough transform to detect lines
-    lines = cv2.HoughLinesP(masked_edges, 2, np.pi / 180, 70, minLineLength=5, maxLineGap=5)
-    print(lines)
+    lines = cv2.HoughLinesP(maskedEdges, 2, np.pi / 180, 70, minLineLength=5, maxLineGap=5)
+    # print(lines)
 
     # Draw the lines on the original image
-    line_img = display_lines(frame, lines)
-    combo_img = cv2.addWeighted(frame, 0.8, line_img, 1, 1)
+    lineImage = DisplayLines(frame, lines)
+    comboImage = cv2.addWeighted(frame, 0.8, lineImage, 1, 1)
 
     # Convert the final image to RGB
-    combo_img_rgb = cv2.cvtColor(combo_img, cv2.COLOR_BGR2RGB)
+    comboImageRGB = cv2.cvtColor(comboImage, cv2.COLOR_BGR2RGB)
 
-    return combo_img_rgb
+    return comboImageRGB
     
 # %%
 # Function to process a frame with prints for debugging
-def processFrame_withPrints(frame):
+def processframeWithPrints(frame):
     # Load the image
     plt.imshow(frame)
     plt.show()
 
     # Convert to grayscale
-    gray_img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # plt.imshow(gray_img)
+    grayImage = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # plt.imshow(grayImage)
     # plt.show()
 
     # Apply Gaussian blur
-    blur_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
-    # plt.imshow(blur_img)
+    blurImage = cv2.GaussianBlur(grayImage, (5, 5), 0)
+    # plt.imshow(blurImage)
     # plt.show()
 
     # Use Canny edge detection
-    edges_img = cv2.Canny(blur_img, 50, 150)
-    plt.imshow(edges_img)
+    edgesImages = cv2.Canny(blurImage, 50, 150)
+    plt.imshow(edgesImages)
     plt.show()
 
-    masked_edges = region_of_interest(edges_img)
-    plt.imshow(masked_edges)
+    maskedEdges = RegionOfInterest(edgesImages)
+    plt.imshow(maskedEdges)
     plt.show()
 
     # Use Hough transform to detect lines
-    lines = cv2.HoughLinesP(masked_edges, 2, np.pi / 180, 70, minLineLength=5, maxLineGap=5)
+    lines = cv2.HoughLinesP(maskedEdges, 2, np.pi / 180, 70, minLineLength=5, maxLineGap=5)
     print(lines)
 
     # Draw the lines on the original image
-    line_img = display_lines(frame, lines)
-    combo_img = cv2.addWeighted(frame, 0.8, line_img, 1, 1)
+    lineImage = DisplayLines(frame, lines)
+    comboImage = cv2.addWeighted(frame, 0.8, lineImage, 1, 1)
 
     # Convert the final image to RGB
-    combo_img_rgb = cv2.cvtColor(combo_img, cv2.COLOR_BGR2RGB)
+    comboImageRGB = cv2.cvtColor(comboImage, cv2.COLOR_BGR2RGB)
 
     # Display the image
-    plt.imshow(combo_img_rgb)
+    plt.imshow(comboImageRGB)
     plt.show()
 
-    return combo_img_rgb
+    return comboImageRGB
 
 # %%
 # Apply the process to a single image
-# picture = cv2.imread("LanePicture_Debug1.png")
-# processFrame_withPrints(picture)
+# picture = cv2.imread("LanePicture5.png")
+# processframeWithPrints(picture)
 
 # %%
 # Apply the same process to a video
-video_path = "LaneSwitchingVideo2.mp4"
+videoPath = "LaneSwitchingVideo2.mp4"
 
-cap = cv2.VideoCapture(video_path)
+cap = cv2.VideoCapture(videoPath)
 
 if not cap.isOpened():
     print("Could not open the video")
