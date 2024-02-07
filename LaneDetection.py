@@ -129,10 +129,7 @@ def DisplayLines(image, lines):
         
         checkForLaneSwitching(image.shape[1], x1, y1, x2, y2)
 
-        if(rightLaneGlobal[4] <= 1 or leftLaneGlobal[0] <= 1):
-            cv2.line(lineImage, (x1, y1), (x2, y2), (0, 255, 0), 12)
-        else:
-            cv2.line(lineImage, (x1, y1), (x2, y2), (255, 0, 255), 12)
+        cv2.line(lineImage, (x1, y1), (x2, y2), (255, 0, 255), 12)
     
     return lineImage
 
@@ -143,14 +140,15 @@ def checkForLaneSwitching(imageWidth, x1, y1, x2, y2):
     if not switching:
         middle_x = imageWidth / 2
         m = (x2-x1) / (y2-y1)
-        if ((x1 < middle_x) and (x2 > middle_x)) or ((x1 > middle_x) and (x2 < middle_x)):
-            switching = True
+        if ((x1 - 25 < middle_x) and (x2 + 25 > middle_x)) or (
+            (x1 + 25 > middle_x) and (x2 - 25 < middle_x)):
             timer = time.time()  # Start the timer
             switching = "Right" if m > 0 else "Left"
             print("Switching: ", switching)
     else:
-        if time.time() - timer > 3:  # 3 seconds have passed
-            switching = False  # Reset the switching state after 2 seconds
+        if time.time() - timer > 4:  # 4 seconds have passed
+            switching = None  # Reset the switching state
+            timer = 0
 
 # %%
 def processFrame(frame):
@@ -171,22 +169,22 @@ def processFrame(frame):
     lineImage = DisplayLines(frame, lines)
     comboImage = cv2.addWeighted(frame, 0.8, lineImage, 1, 1)
 
-    # Convert the final image to RGB
-    comboImageRGB = cv2.cvtColor(comboImage, cv2.COLOR_BGR2RGB)
-
     frameWidth = frame.shape[1]
     # Display the lane switching message if applicable
     if switching:
         if switching == "Right":
-            # Position the text on the right side of the frame
-            text_position = (frameWidth - 400, 50)  # Adjust the x-coordinate as needed
+            # Position the text on the right side of the frame, include a right arrow symbol
+            text_position = (frameWidth // 2, 75)  # Adjust the x-coordinate as needed
+            message = f"{switching} Lane Switching ->"
         elif switching == "Left":
-            # Position the text on the left side of the frame
-            text_position = (50, 50)  # Near the left edge
+            # Position the text on the left side of the frame, include a left arrow symbol
+            text_position = (50, 75)  # Near the left edge
+            message = f"<- {switching} Lane Switching"
 
-        cv2.putText(comboImageRGB, f"{switching} Lane Switching", text_position, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
+        # Draw the text with the arrow symbol
+        cv2.putText(comboImage, message, text_position, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3, cv2.LINE_AA)
 
-    return comboImageRGB
+    return comboImage
     
 # %%
 # Function to process a frame with prints for debugging
@@ -222,26 +220,27 @@ def processframeWithPrints(frame):
     lineImage = DisplayLines(frame, lines)
     comboImage = cv2.addWeighted(frame, 0.8, lineImage, 1, 1)
 
-    # Convert the final image to RGB
-    comboImageRGB = cv2.cvtColor(comboImage, cv2.COLOR_BGR2RGB)
-
     frameWidth = frame.shape[1]
     # Display the lane switching message if applicable
     if switching:
         if switching == "Right":
-            # Position the text on the right side of the frame
-            text_position = (frameWidth - 400, 50)  # Adjust the x-coordinate as needed
+            # Position the text on the right side of the frame, include a right arrow symbol
+            text_position = (frameWidth // 2, 75)  # Adjust the x-coordinate as needed
+            message = f"{switching} Lane Switching ->"
         elif switching == "Left":
-            # Position the text on the left side of the frame
-            text_position = (50, 50)  # Near the left edge
+            # Position the text on the left side of the frame, include a left arrow symbol
+            text_position = (50, 75)  # Near the left edge
+            message = f"<- {switching} Lane Switching"
 
-        cv2.putText(comboImageRGB, f"{switching} Lane Switching", text_position, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
+        # Draw the text with the arrow symbol
+        cv2.putText(comboImage, message, text_position, cv2.FONT_HERSHEY_SIMPLEX, 
+                    1.5, (0, 255, 255), 3, cv2.LINE_AA)
 
     # Display the image
-    plt.imshow(comboImageRGB)
+    plt.imshow(comboImage)
     plt.show()
 
-    return comboImageRGB
+    return comboImage
 
 # %%
 # Apply the process to a single image
@@ -250,17 +249,21 @@ def processframeWithPrints(frame):
 
 # %%
 # Apply the same process to a video
-videoPath = "LaneSwitchingVideo2_Fix.mp4"
+videoPath = "LaneSwitchingVideo2.mp4"
 
 cap = cv2.VideoCapture(videoPath)
 
 if not cap.isOpened():
     print("Could not open the video")
 
+out = None
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
+    
+    if out is None:
+        out = cv2.VideoWriter('outputVideo.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame.shape[1], frame.shape[0]))
     
     ## run as single frames
     # plt.imshow(processFrame(frame))
@@ -269,12 +272,13 @@ while cap.isOpened():
     ## run as video
     frameWithLanes = processFrame(frame)
     cv2.imshow('out', frameWithLanes)
+    out.write(frameWithLanes)
 
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break
 
+out.release()
 cap.release()
-# out.release()
 cv2.destroyAllWindows()
 
 # %%
