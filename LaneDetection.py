@@ -2,9 +2,12 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 rightLaneGlobal = [0, 0, 0, 0, 0]
 leftLaneGlobal = [0, 0, 0, 0, 0]
+switching = None
+timer = 0
 
 # %%
 # Define a region of interest
@@ -123,12 +126,31 @@ def DisplayLines(image, lines):
     for line in linesAfterFilter:
         x1, y1, x2, y2 = line[0]        
         x1, y1, x2, y2 = CalculateLaneBoundaries(x1, y1, x2, y2, image.shape[0])
+        
+        checkForLaneSwitching(image.shape[1], x1, y1, x2, y2)
+
         if(rightLaneGlobal[4] <= 1 or leftLaneGlobal[0] <= 1):
             cv2.line(lineImage, (x1, y1), (x2, y2), (0, 255, 0), 12)
         else:
             cv2.line(lineImage, (x1, y1), (x2, y2), (255, 0, 255), 12)
     
     return lineImage
+
+# %%
+# Function to detect lane switching
+def checkForLaneSwitching(imageWidth, x1, y1, x2, y2):
+    global switching, timer
+    if not switching:
+        middle_x = imageWidth / 2
+        m = (x2-x1) / (y2-y1)
+        if ((x1 < middle_x) and (x2 > middle_x)) or ((x1 > middle_x) and (x2 < middle_x)):
+            switching = True
+            timer = time.time()  # Start the timer
+            switching = "Right" if m > 0 else "Left"
+            print("Switching: ", switching)
+    else:
+        if time.time() - timer > 3:  # 3 seconds have passed
+            switching = False  # Reset the switching state after 2 seconds
 
 # %%
 def processFrame(frame):
@@ -151,6 +173,18 @@ def processFrame(frame):
 
     # Convert the final image to RGB
     comboImageRGB = cv2.cvtColor(comboImage, cv2.COLOR_BGR2RGB)
+
+    frameWidth = frame.shape[1]
+    # Display the lane switching message if applicable
+    if switching:
+        if switching == "Right":
+            # Position the text on the right side of the frame
+            text_position = (frameWidth - 400, 50)  # Adjust the x-coordinate as needed
+        elif switching == "Left":
+            # Position the text on the left side of the frame
+            text_position = (50, 50)  # Near the left edge
+
+        cv2.putText(comboImageRGB, f"{switching} Lane Switching", text_position, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
 
     return comboImageRGB
     
@@ -191,6 +225,18 @@ def processframeWithPrints(frame):
     # Convert the final image to RGB
     comboImageRGB = cv2.cvtColor(comboImage, cv2.COLOR_BGR2RGB)
 
+    frameWidth = frame.shape[1]
+    # Display the lane switching message if applicable
+    if switching:
+        if switching == "Right":
+            # Position the text on the right side of the frame
+            text_position = (frameWidth - 400, 50)  # Adjust the x-coordinate as needed
+        elif switching == "Left":
+            # Position the text on the left side of the frame
+            text_position = (50, 50)  # Near the left edge
+
+        cv2.putText(comboImageRGB, f"{switching} Lane Switching", text_position, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
+
     # Display the image
     plt.imshow(comboImageRGB)
     plt.show()
@@ -204,7 +250,7 @@ def processframeWithPrints(frame):
 
 # %%
 # Apply the same process to a video
-videoPath = "LaneSwitchingVideo2.mp4"
+videoPath = "LaneSwitchingVideo2_Fix.mp4"
 
 cap = cv2.VideoCapture(videoPath)
 
