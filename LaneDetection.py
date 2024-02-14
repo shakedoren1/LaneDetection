@@ -85,7 +85,8 @@ def FilterLines(lines, frameWidth):
 
         linesAfterInitialFilter.append(line)
 
-    print("linesAfterInitialFilter:", linesAfterInitialFilter)
+    ## For debugging:
+    # print("linesAfterInitialFilter:", linesAfterInitialFilter)
 
     global leftLaneGlobal
     global rightLaneGlobal
@@ -157,9 +158,9 @@ def processFrame(frame):
     # Apply Gaussian blur
     blurImage = cv2.GaussianBlur(grayImage, (5, 5), 0)
     # Use Canny edge detection
-    edgesImages = cv2.Canny(blurImage, 50, 150)
-
-    maskedEdges = RegionOfInterest(edgesImages)
+    edgesImage = cv2.Canny(blurImage, 50, 150)
+    
+    maskedEdges = RegionOfInterest(edgesImage)
 
     # Use Hough transform to detect lines
     lines = cv2.HoughLinesP(maskedEdges, 2, np.pi / 180, 70, minLineLength=5, maxLineGap=5)
@@ -243,13 +244,48 @@ def processframeWithPrints(frame):
     return comboImage
 
 # %%
+###############################################
+# A function to draw bounding boxes on an image
+def draw_boxes(img, boxes, color=(0, 0, 255), thick=6):
+    img_copy = np.copy(img)
+    for box in boxes:
+        # Draw a rectangle given box coordinates
+        cv2.rectangle(img_copy, box[0], box[2], color, thick)
+    
+    return img_copy
+    
+    
+# Function to find matches to templates in an image and return the bounding boxes
+def find_matches(img, template_list):
+    box_list = []
+    # Iterate through template list
+    for template in template_list:
+        tmp = cv2.imread(template)
+        result_after_matching = cv2.matchTemplate(img, tmp, cv2.TM_CCOEFF_NORMED)
+        # Use cv2.minMaxLoc() to extract the location of the best match
+        _, max_val, _, top_left = cv2.minMaxLoc(result_after_matching)
+        # Determine bounding box corners for the match
+        w, h = (tmp.shape[1], tmp.shape[0])
+        top_right = (top_left[0] + w, top_left[1])
+        bottom_right = (top_left[0] + w, top_left[1] + h)
+        bottom_left = (top_left[0], top_left[1] + h)
+        threshold = 0.8
+        # Check if confidence score is above threshold
+        if max_val > threshold:
+            box_list.append((top_left, top_right, bottom_right, bottom_left))
+
+    return box_list
+##############################
+
+
+# %%
 # Apply the process to a single image
-# picture = cv2.imread("LanePicture5.png")
-# processframeWithPrints(picture)
+# picture = cv2.imread("Crossroad1.png")
+# processFrame(picture)
 
 # %%
 # Apply the same process to a video
-videoPath = "LaneSwitchingVideo2.mp4"
+videoPath = "CrashVideo2 - Trim1.mp4"
 
 cap = cv2.VideoCapture(videoPath)
 
@@ -257,6 +293,15 @@ if not cap.isOpened():
     print("Could not open the video")
 
 out = None
+
+# This is the list of templates to search for in the video
+template_list = ['car1.png', 'car2.png', 'car3.png']
+for i in range(1, 2):
+    template_list.append(f'car1.{i}.png')
+    template_list.append(f'car2.{i}.png')
+    template_list.append(f'car3.{i}.png')
+print(template_list)
+
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
@@ -271,12 +316,16 @@ while cap.isOpened():
 
     ## run as video
     frameWithLanes = processFrame(frame)
+    ########### find cars in the video
+    boxes = find_matches(frame, template_list)
+    frameWithLanes = draw_boxes(frameWithLanes, boxes)
+    ###########
     cv2.imshow('out', frameWithLanes)
     out.write(frameWithLanes)
 
-    if cv2.waitKey(10) & 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
-
+    
 out.release()
 cap.release()
 cv2.destroyAllWindows()
