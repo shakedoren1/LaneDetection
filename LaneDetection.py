@@ -7,34 +7,34 @@ import time
 # Lane detection variables
 rightLaneGlobal = [0, 0, 0, 0, 0]
 leftLaneGlobal = [0, 0, 0, 0, 0]
-polygon_parameters = [0, 0, 0, 0, 0, 0, 0, 0]
-lane_polygon = np.array([[0, 0], [0, 0], [0, 0], [0, 0]], np.int32)
+polygonParameters = [0, 0, 0, 0, 0, 0, 0, 0]
+lanePolygon = np.array([[0, 0], [0, 0], [0, 0], [0, 0]], np.int32)
 # Lane switching variables
 switching = None
 timer = 0
 # Collision detection variables
-danger_polygon = np.array([[0, 0], [0, 0], [0, 0], [0, 0]], np.int32)
+dangerPolygon = np.array([[0, 0], [0, 0], [0, 0], [0, 0]], np.int32)
 allTemplates = []
-template_strings = []
-for i in range(1, 6):
-    template_strings.append('Templates\Car' + str(i) + '.png')
-
+templateStrings = []
+for i in range(14):
+    templateStrings.append('Templates\Car' + str(i) + '.png')
+ 
 # Load more templates in different sizes for better detection
-for template in template_strings:
+for template in templateStrings:
         template = cv2.imread(template)
-        for i in range(0, 50, 7):
+        for i in range(0, 57, 5):
            allTemplates.append(cv2.resize(template, (int(template.shape[1]*(1-i/100)), int(template.shape[0]*(1-i/100))), interpolation = cv2.INTER_AREA))
 
 # Function to create a lane detection polygon
-def select_lane_polygon(frame):
+def SelectLanePolygon(frame):
     frameHeight, frameWidth = frame.shape[:2]
-    global lane_polygon
+    global lanePolygon
     # Define the polygon vertices
-    lane_polygon = np.array([[
-        (frameWidth * polygon_parameters[0], frameHeight * polygon_parameters[1]),
-        (frameWidth * polygon_parameters[2], frameHeight * polygon_parameters[3]),
-        (frameWidth * polygon_parameters[4], frameHeight * polygon_parameters[5]),
-        (frameWidth * polygon_parameters[6], frameHeight * polygon_parameters[7]),
+    lanePolygon = np.array([[
+        (frameWidth * polygonParameters[0], frameHeight * polygonParameters[1]),
+        (frameWidth * polygonParameters[2], frameHeight * polygonParameters[3]),
+        (frameWidth * polygonParameters[4], frameHeight * polygonParameters[5]),
+        (frameWidth * polygonParameters[6], frameHeight * polygonParameters[7]),
     ]], np.int32)
 
 
@@ -44,7 +44,7 @@ def select_lane_polygon(frame):
 # Define a region of interest
 def RegionOfInterest(edgesImages):
     mask = np.zeros_like(edgesImages)
-    cv2.fillPoly(mask, lane_polygon, 255)
+    cv2.fillPoly(mask, lanePolygon, 255)
     maskedImage = cv2.bitwise_and(edgesImages, mask)
     return maskedImage
 
@@ -136,7 +136,7 @@ def DisplayLines(image, lines):
         x1, y1, x2, y2 = line[0]        
         x1, y1, x2, y2 = CalculateLaneBoundaries(x1, y1, x2, y2, image.shape[0])
         
-        checkForLaneSwitching(image.shape[1], x1, y1, x2, y2)
+        CheckForLaneSwitching(image.shape[1], x1, y1, x2, y2)
 
         cv2.line(lineImage, (x1, y1), (x2, y2), (255, 0, 255), 12)
     
@@ -144,7 +144,7 @@ def DisplayLines(image, lines):
 
 # %%
 # Function to detect lane switching
-def checkForLaneSwitching(imageWidth, x1, y1, x2, y2):
+def CheckForLaneSwitching(imageWidth, x1, y1, x2, y2):
     global switching, timer
     if not switching:
         middle_x = imageWidth / 2
@@ -160,7 +160,7 @@ def checkForLaneSwitching(imageWidth, x1, y1, x2, y2):
             timer = 0
 
 # %%
-def processFrame(frame):
+def ProcessFrame(frame):
     # Convert to grayscale
     grayImage = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     # Apply Gaussian blur
@@ -183,21 +183,21 @@ def processFrame(frame):
     if switching:
         if switching == "Right":
             # Position the text on the right side of the frame, include a right arrow symbol
-            text_position = (frameWidth // 2, 75)  # Adjust the x-coordinate as needed
+            textPosition = (frameWidth // 2, 75)  # Adjust the x-coordinate as needed
             message = f"{switching} Lane Switching ->"
         elif switching == "Left":
             # Position the text on the left side of the frame, include a left arrow symbol
-            text_position = (50, 75)  # Near the left edge
+            textPosition = (50, 75)  # Near the left edge
             message = f"<- {switching} Lane Switching"
 
         # Draw the text with the arrow symbol
-        cv2.putText(comboImage, message, text_position, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3, cv2.LINE_AA)
+        cv2.putText(comboImage, message, textPosition, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3, cv2.LINE_AA)
 
     return comboImage
     
 # %%
 # Function to process a frame with prints for debugging
-def processframeWithPrints(frame):
+def ProcessFrameWithPrints(frame):
     # Load the image
     plt.imshow(frame)
     plt.show()
@@ -234,15 +234,15 @@ def processframeWithPrints(frame):
     if switching:
         if switching == "Right":
             # Position the text on the right side of the frame, include a right arrow symbol
-            text_position = (frameWidth // 2, 75)  # Adjust the x-coordinate as needed
+            textPosition = (frameWidth // 2, 75)  # Adjust the x-coordinate as needed
             message = f"{switching} Lane Switching ->"
         elif switching == "Left":
             # Position the text on the left side of the frame, include a left arrow symbol
-            text_position = (50, 75)  # Near the left edge
+            textPosition = (50, 75)  # Near the left edge
             message = f"<- {switching} Lane Switching"
 
         # Draw the text with the arrow symbol
-        cv2.putText(comboImage, message, text_position, cv2.FONT_HERSHEY_SIMPLEX, 
+        cv2.putText(comboImage, message, textPosition, cv2.FONT_HERSHEY_SIMPLEX, 
                     1.5, (0, 255, 255), 3, cv2.LINE_AA)
 
     # Display the image
@@ -254,64 +254,64 @@ def processframeWithPrints(frame):
 # %%
 ###############################################
 # A function to draw bounding boxes on an image
-def draw_boxes(img, boxes):
-    img_copy = np.copy(img)
+def DrawBoxes(img, boxes):
+    imgCopy = np.copy(img)
     for box in boxes:
         x, y = box[0]
         color = (255, 0, 0)
         # Add warning if the box is inside the danger zone
-        if is_inside_polygon(box, danger_polygon):
-            cv2.putText(img_copy, "WARNING", (x + 20, y - 20), 
+        if IsInsidePolygon(box, dangerPolygon):
+            cv2.putText(imgCopy, "WARNING", (x + 20, y - 20), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
             color = (0, 0, 255)
         # Draw the bounding box around the car
-        cv2.rectangle(img_copy, box[0], box[2], color, 6)
+        cv2.rectangle(imgCopy, box[0], box[2], color, 6)
     
-    return img_copy
+    return imgCopy
     
     
-def uniqueBox(box_list, top_left, bottom_right):
-    for top_left_box, _ , bottom_right_box, _ in box_list:
-        if top_left_box[0] < top_left[0] and top_left_box[1] < top_left[1] and bottom_right_box[0] > bottom_right[0] and bottom_right_box[1] > bottom_right[1]:
+def UniqueBox(boxList, topLeft, bottomRight):
+    for topLeftBox, _ , bottomRightBox, _ in boxList:
+        if topLeftBox[0] < topLeft[0] + 120 and topLeftBox[1] < topLeft[1] + 120 and bottomRightBox[0] + 120 > bottomRight[0] and bottomRightBox[1] + 120 > bottomRight[1]:
             return False
     return True
         
 
 # Function to find matches to templates in an image and return the bounding boxes
-def find_matches(img):
-    box_list = []
+def FindMatches(img):
+    boxList = []
     # Iterate through template list
 
     for tmp in allTemplates:
-        result_after_matching = cv2.matchTemplate(img, tmp, cv2.TM_CCOEFF_NORMED)
+        resultAfterMatching = cv2.matchTemplate(img, tmp, cv2.TM_CCOEFF_NORMED)
         # Use cv2.minMaxLoc() to extract the location of the best match
-        _, max_val, _, top_left = cv2.minMaxLoc(result_after_matching)
+        _, maxVal, _, topLeft = cv2.minMaxLoc(resultAfterMatching)
         # Determine bounding box corners for the match
-        w, h = (tmp.shape[1], tmp.shape[0])
-        top_right = (top_left[0] + w, top_left[1])
-        bottom_right = (top_left[0] + w, top_left[1] + h)
-        bottom_left = (top_left[0], top_left[1] + h)
-        threshold = 0.8
+        width, height = (tmp.shape[1], tmp.shape[0])
+        topRight = (topLeft[0] + width, topLeft[1])
+        bottomRight = (topLeft[0] + width, topLeft[1] + height)
+        bottomLeft = (topLeft[0], topLeft[1] + height)
+        threshold = 0.82
         # Check if confidence score is above threshold
-        if max_val > threshold and uniqueBox(box_list, top_left, bottom_right):
-            box_list.append((top_left, top_right, bottom_right, bottom_left))
+        if maxVal > threshold and UniqueBox(boxList, topLeft, bottomRight):
+            boxList.append((topLeft, topRight, bottomRight, bottomLeft))
 
-    return box_list
+    return boxList
 ##############################
 
 # Function to check if a bounding box is inside a polygon
-def is_inside_polygon(box, polygon):
+def IsInsidePolygon(box, polygon):
     for point in box:
         if cv2.pointPolygonTest(polygon, point, False) >= 0:
             return True
     return False
 
 # Function to create a danger polygon
-def select_danger_zone(frame):
+def SelectDangerZone(frame):
     frameHeight, frameWidth = frame.shape[:2]
-    global danger_polygon
+    global dangerPolygon
     # Define the polygon vertices
-    danger_polygon = np.array([[
+    dangerPolygon = np.array([[
         (frameWidth * 0.39, frameHeight * 0.53),
         (frameWidth * 0.51, frameHeight * 0.53),
         (frameWidth * 0.7, frameHeight),
@@ -319,7 +319,7 @@ def select_danger_zone(frame):
     ]], np.int32)
 
     # # Print the polygon vertices for debugging
-    # cv2.polylines(frame, [danger_polygon], True, (0, 0, 255), 2)  # Draw in blue
+    # cv2.polylines(frame, [dangerPolygon], True, (0, 0, 255), 2)  # Draw in blue
     # plt.imshow(frame)
     # plt.show()
 ##############################
@@ -328,65 +328,22 @@ def select_danger_zone(frame):
 # %%
 # Apply the process to a single image
 # picture = cv2.imread("Crossroad1.png")
-# processframeWithPrints(picture)
+# ProcessFrameWithPrints(picture)
 
-# %%
-# Apply the same process to a video
-# videoPath = "CrashVideo2_short.mp4"
-
-# cap = cv2.VideoCapture(videoPath)
-
-# if not cap.isOpened():
-#     print("Could not open the video")
-
-# out = None
-
-# while cap.isOpened():
-#     ret, frame = cap.read()
-#     if not ret:
-#         break
-    
-#     # In the first frame, initialize the video writer and select the 
-#     # lane polygon and danger zone
-#     if out is None:
-#         out = cv2.VideoWriter('outputVideo.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 
-#                               30, (frame.shape[1], frame.shape[0]))
-#         select_lane_polygon(frame)
-#         select_danger_zone(frame)
-    
-#     ## run as single frames
-#     # plt.imshow(processFrame(frame))
-#     # plt.show()
-
-#     frameWithLanes = processFrame(frame)
-#     ########### find cars in the video
-#     boxes = find_matches(frame)
-#     frameWithLanes = draw_boxes(frameWithLanes, boxes)
-#     ###########
-#     # cv2.imshow('out', frameWithLanes)
-#     out.write(frameWithLanes)
-
-#     if cv2.waitKey(1) & 0xFF == ord('q'):
-#         break
-    
-# out.release()
-# cap.release()
-# cv2.destroyAllWindows()
 
 # %%
 # # Check the danger polygon
 # picture = cv2.imread("crashPicture2.png")
-# select_danger_zone(picture)
-
-# %%
+# SelectDangerZone(picture)
 
 # %%
 # Apply the same process to the 3 videos
-Lane_Switching_Video = "LaneSwitchingVideo2.mp4"
-Crash_Video = "CrashVideo2_short.mp4"
-videoPath_array = [Lane_Switching_Video ,Crash_Video]
+LaneSwitchingVideo = "LaneSwitchingVideo2.mp4"
+CrashVideo = "CrashVideo2 - Trim2.mp4"
+videoPathArray = [LaneSwitchingVideo ,CrashVideo]
 
-for videoPath in videoPath_array:
+for i in range(len(videoPathArray)):
+    videoPath = videoPathArray[i]
     cap = cv2.VideoCapture(videoPath)
     # Error handling
     if not cap.isOpened():
@@ -400,28 +357,28 @@ for videoPath in videoPath_array:
             break
         
         # Set the global lane polygon parameters for each video
-        if videoPath == Lane_Switching_Video:
-            polygon_parameters = [0.4, 0.63, 0.55, 0.63, 0.8, 1, 0.1, 1]
-        elif videoPath == Crash_Video:
-            polygon_parameters = [0.3, 0.6, 0.55, 0.6, 0.7, 0.95, 0.02, 0.95]
+        if i == 0:
+            polygonParameters = [0.4, 0.63, 0.55, 0.63, 0.8, 1, 0.1, 1]
+        elif i == 1:
+            polygonParameters = [0.3, 0.6, 0.55, 0.6, 0.7, 0.95, 0.02, 0.95]
 
         # In the first frame, initialize the video writer and select the 
         # lane polygon and danger zone
         if out is None:
             out = cv2.VideoWriter('output_' + videoPath, cv2.VideoWriter_fourcc(*'mp4v'), 
                                 30, (frame.shape[1], frame.shape[0]))
-            select_lane_polygon(frame)
-            if videoPath == Crash_Video:
-                select_danger_zone(frame)
+            SelectLanePolygon(frame)
+            if videoPath == CrashVideo:
+                SelectDangerZone(frame)
 
-        frameWithLanes = processFrame(frame)
+        frameWithLanes = ProcessFrame(frame)
         # Find cars in the video and draw bounding boxes and warning messages
-        if videoPath == Crash_Video:
-            cars = find_matches(frame)
-            frameWithLanes = draw_boxes(frameWithLanes, cars)
+        if i == 1:
+            cars = FindMatches(frame)
+            frameWithLanes = DrawBoxes(frameWithLanes, cars)
 
         ## Print the frame to debug
-        cv2.imshow('out', frameWithLanes)
+        # cv2.imshow('out', frameWithLanes)
             
         out.write(frameWithLanes)
 
