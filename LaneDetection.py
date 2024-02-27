@@ -304,9 +304,9 @@ for i in range(len(videosNameArray)):
                 glabalLanesCounter = 11
             elif i == 1:
                 # Night video parameters
-                polygonParameters = [0.4, 0.63, 0.55, 0.63, 0.8, 1, 0.1, 1]
+                polygonParameters = [0.44, 0.66, 0.54, 0.66, 0.8, 1, 0.13, 1]
                 laneLength = 0.73
-                glabalLanesCounter = 5
+                glabalLanesCounter = 8
             else:
                 # Car detection video parameters
                 polygonParameters = [0.3, 0.6, 0.55, 0.6, 0.7, 0.95, 0.02, 0.95]
